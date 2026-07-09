@@ -1,10 +1,12 @@
 import { initViewer, loadArrayBuffer } from './viewer.js';
 import { initAuth, downloadFile, openFilePicker } from './drive.js';
 
-const $status     = document.getElementById('status');
-const $statusText = document.getElementById('status-text');
-const $btnOpen    = document.getElementById('btn-open');
-const $btnDl      = document.getElementById('btn-download');
+const $status      = document.getElementById('status');
+const $statusText  = document.getElementById('status-text');
+const $btnOpen     = document.getElementById('btn-open');
+const $btnOpenLocal = document.getElementById('btn-open-local');
+const $fileInput   = document.getElementById('file-input');
+const $btnDl       = document.getElementById('btn-download');
 
 function showStatus(msg, type = 'loading') {
   $status.className = type;
@@ -38,15 +40,43 @@ async function loadFromDrive(fileId) {
   }
 }
 
+async function loadFromLocalFile(file) {
+  showStatus(`Loading ${file.name}…`);
+  try {
+    const buffer = await file.arrayBuffer();
+    document.title = `${file.name} — 3D Viewer`;
+
+    const blobUrl = URL.createObjectURL(file);
+    $btnDl.href     = blobUrl;
+    $btnDl.download = file.name;
+    $btnDl.classList.remove('hidden');
+
+    await loadArrayBuffer(buffer, file.name);
+    hideStatus();
+  } catch (err) {
+    showStatus(err.message, 'error');
+    console.error(err);
+  }
+}
+
 async function main() {
   showStatus('Initializing…');
 
   initViewer(document.getElementById('canvas'));
 
+  $btnOpenLocal.classList.remove('hidden');
+  $btnOpenLocal.addEventListener('click', () => $fileInput.click());
+  $fileInput.addEventListener('change', async () => {
+    const file = $fileInput.files[0];
+    $fileInput.value = '';
+    if (file) await loadFromLocalFile(file);
+  });
+
   try {
     await initAuth();
   } catch (err) {
-    showStatus(err.message, 'error');
+    // Local file opening still works without Google auth configured.
+    hideStatus();
     return;
   }
 

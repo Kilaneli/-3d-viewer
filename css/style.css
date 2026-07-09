@@ -42,6 +42,20 @@ body {
 #btn-open:disabled { opacity: .6; cursor: default; }
 #btn-open img      { width: 20px; height: 20px; }
 
+#btn-open-local {
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #202124;
+  box-shadow: 0 1px 3px rgba(60,64,67,.15);
+  transition: background .15s;
+}
+#btn-open-local:hover    { background: #f8f9fa; }
+#btn-open-local:disabled { opacity: .6; cursor: default; }
+
 #btn-download {
   font-size: 13px;
   color: #1a73e8;
