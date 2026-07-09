@@ -5,6 +5,7 @@ import { GLTFLoader }   from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 let scene, camera, renderer, controls, currentObject;
+let lastStats = null;
 
 export function initViewer(canvas) {
   scene = new THREE.Scene();
@@ -103,7 +104,38 @@ export function loadArrayBuffer(buffer, filename) {
 function placeInScene(object) {
   scene.add(object);
   currentObject = object;
+  lastStats = computeStats(object);
   fitCameraToObject(object);
+}
+
+function computeStats(object) {
+  const box  = new THREE.Box3().setFromObject(object);
+  const size = box.getSize(new THREE.Vector3());
+
+  let triangles = 0;
+  let vertices  = 0;
+  let meshes    = 0;
+
+  object.traverse(child => {
+    if (!child.isMesh) return;
+    meshes++;
+    const geometry = child.geometry;
+    const posAttr  = geometry.getAttribute('position');
+    if (!posAttr) return;
+    vertices += posAttr.count;
+    triangles += geometry.index ? geometry.index.count / 3 : posAttr.count / 3;
+  });
+
+  return {
+    dimensions: { x: size.x, y: size.y, z: size.z },
+    triangles: Math.round(triangles),
+    vertices,
+    meshes,
+  };
+}
+
+export function getModelStats() {
+  return lastStats;
 }
 
 function fitCameraToObject(object) {

@@ -1,12 +1,35 @@
-import { initViewer, loadArrayBuffer } from './viewer.js';
+import { initViewer, loadArrayBuffer, getModelStats } from './viewer.js';
 import { initAuth, downloadFile, openFilePicker } from './drive.js';
 
-const $status      = document.getElementById('status');
-const $statusText  = document.getElementById('status-text');
-const $btnOpen     = document.getElementById('btn-open');
-const $btnOpenLocal = document.getElementById('btn-open-local');
-const $fileInput   = document.getElementById('file-input');
-const $btnDl       = document.getElementById('btn-download');
+const $status         = document.getElementById('status');
+const $statusText     = document.getElementById('status-text');
+const $btnOpen        = document.getElementById('btn-open');
+const $btnOpenLocal   = document.getElementById('btn-open-local');
+const $fileInput      = document.getElementById('file-input');
+const $btnDl          = document.getElementById('btn-download');
+const $infoPanel      = document.getElementById('info-panel');
+const $infoSize       = document.getElementById('info-size');
+const $infoDimensions = document.getElementById('info-dimensions');
+const $infoTriangles  = document.getElementById('info-triangles');
+const $infoVertices   = document.getElementById('info-vertices');
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
+}
+
+function showModelInfo(fileSizeBytes) {
+  const stats = getModelStats();
+  if (!stats) { $infoPanel.classList.add('hidden'); return; }
+
+  $infoSize.textContent = formatBytes(fileSizeBytes);
+  $infoDimensions.textContent =
+    `${stats.dimensions.x.toFixed(2)} × ${stats.dimensions.y.toFixed(2)} × ${stats.dimensions.z.toFixed(2)}`;
+  $infoTriangles.textContent = stats.triangles.toLocaleString();
+  $infoVertices.textContent  = stats.vertices.toLocaleString();
+  $infoPanel.classList.remove('hidden');
+}
 
 function showStatus(msg, type = 'loading') {
   $status.className = type;
@@ -33,6 +56,7 @@ async function loadFromDrive(fileId) {
     $btnDl.classList.remove('hidden');
 
     await loadArrayBuffer(buffer, name);
+    showModelInfo(buffer.byteLength);
     hideStatus();
   } catch (err) {
     showStatus(err.message, 'error');
@@ -52,6 +76,7 @@ async function loadFromLocalFile(file) {
     $btnDl.classList.remove('hidden');
 
     await loadArrayBuffer(buffer, file.name);
+    showModelInfo(file.size);
     hideStatus();
   } catch (err) {
     showStatus(err.message, 'error');
