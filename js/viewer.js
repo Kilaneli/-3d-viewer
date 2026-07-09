@@ -69,6 +69,8 @@ export function loadArrayBuffer(buffer, filename) {
           geometry,
           new THREE.MeshPhongMaterial({ color: 0x9e9e9e, specular: 0x333333, shininess: 40 })
         );
+        // STL convention is Z-up; Three.js is Y-up.
+        mesh.rotation.x = -Math.PI / 2;
         placeInScene(mesh);
         resolve();
         break;
