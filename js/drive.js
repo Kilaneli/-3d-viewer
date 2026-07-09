@@ -6,7 +6,10 @@
 export const CLIENT_ID = '949829535928-28kee3kg5a4m9q1h0c0i6kg04ut5rlmp.apps.googleusercontent.com';
 export const API_KEY   = 'AIzaSyB3u9s_Pqz2coGoi0ijaa9EM8qUd5AIcuU';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+// drive.file: access only to files the user explicitly opens/picks via this app.
+// Avoids the "Restricted" scope classification (and paid CASA security assessment)
+// that drive.readonly would require for public OAuth verification.
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 const MIME_TYPES = [
   'model/stl',
