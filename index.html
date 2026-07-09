@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Viewer for Google Drive</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    window._gapiPromise = new Promise(r => { window._gapiResolve = r; });
+    window._gisPromise  = new Promise(r => { window._gisResolve  = r; });
+  </script>
+  <script async defer src="https://apis.google.com/js/api.js"          onload="window._gapiResolve()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client"     onload="window._gisResolve()"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three":          "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+        "three/addons/":  "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-open" class="hidden">
+      <img src="https://www.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" alt="">
+      Open File from Google Drive
+    </button>
+    <a id="btn-download" class="hidden" href="#" download>Download the file</a>
+  </div>
+
+  <div id="status">
+    <div class="spinner"></div>
+    <span id="status-text">Initializing...</span>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
