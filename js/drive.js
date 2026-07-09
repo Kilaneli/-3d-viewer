@@ -3,8 +3,8 @@
 //   1. CLIENT_ID  → APIs & Services → Credentials → OAuth 2.0 Client ID
 //   2. API_KEY    → APIs & Services → Credentials → API Key
 // ─────────────────────────────────────────────────────────────────────────────
-export const CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
-export const API_KEY   = 'YOUR_API_KEY';
+export const CLIENT_ID = '949829535928-28kee3kg5a4m9q1h0c0i6kg04ut5rlmp.apps.googleusercontent.com';
+export const API_KEY   = 'AIzaSyB3u9s_Pqz2coGoi0ijaa9EM8qUd5AIcuU';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
