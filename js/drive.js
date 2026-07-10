@@ -11,6 +11,12 @@ export const API_KEY   = 'AIzaSyB3u9s_Pqz2coGoi0ijaa9EM8qUd5AIcuU';
 // that drive.readonly would require for public OAuth verification.
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+// Google Cloud project number (the numeric prefix of CLIENT_ID, before the
+// first "-"). Required by Picker so that selecting a file actually grants
+// this app drive.file access to it — without it, selection succeeds
+// visually but the app has no real access and later API calls 404.
+const APP_ID = CLIENT_ID.split('-')[0];
+
 const MIME_TYPES = [
   'model/stl',
   'application/sla',
@@ -93,6 +99,7 @@ export async function openFilePicker() {
         .addView(view)
         .setOAuthToken(token)
         .setDeveloperKey(API_KEY)
+        .setAppId(APP_ID)
         .setCallback((data) => {
           if (data.action === google.picker.Action.PICKED) resolve(data.docs[0].id);
           if (data.action === google.picker.Action.CANCEL)  resolve(null);
