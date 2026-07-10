@@ -28,6 +28,7 @@
     </button>
     <button id="btn-open-local" class="hidden">Open File from Computer</button>
     <input type="file" id="file-input" accept=".stl,.obj,.glb,.gltf" class="hidden">
+    <button id="btn-measure" class="hidden">Measure</button>
     <a id="btn-download" class="hidden" href="#" download>Download the file</a>
   </div>
 
@@ -44,6 +45,8 @@
     <div><span class="info-label">Triangles:</span> <span id="info-triangles"></span></div>
     <div><span class="info-label">Vertices:</span> <span id="info-vertices"></span></div>
   </div>
+
+  <div id="measure-info" class="hidden"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

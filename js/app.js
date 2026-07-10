@@ -1,4 +1,4 @@
-import { initViewer, loadArrayBuffer, getModelStats } from './viewer.js';
+import { initViewer, loadArrayBuffer, getModelStats, setMeasureMode } from './viewer.js';
 import { initAuth, downloadFile, openFilePicker } from './drive.js';
 
 const $status         = document.getElementById('status');
@@ -6,6 +6,8 @@ const $statusText     = document.getElementById('status-text');
 const $btnOpen        = document.getElementById('btn-open');
 const $btnOpenLocal   = document.getElementById('btn-open-local');
 const $fileInput      = document.getElementById('file-input');
+const $btnMeasure     = document.getElementById('btn-measure');
+const $measureInfo    = document.getElementById('measure-info');
 const $btnDl          = document.getElementById('btn-download');
 const $infoPanel      = document.getElementById('info-panel');
 const $infoSize       = document.getElementById('info-size');
@@ -29,6 +31,11 @@ function showModelInfo(fileSizeBytes) {
   $infoTriangles.textContent = stats.triangles.toLocaleString();
   $infoVertices.textContent  = stats.vertices.toLocaleString();
   $infoPanel.classList.remove('hidden');
+
+  $btnMeasure.classList.remove('hidden');
+  $btnMeasure.classList.remove('active');
+  $measureInfo.classList.add('hidden');
+  setMeasureMode(false);
 }
 
 function showStatus(msg, type = 'loading') {
@@ -95,6 +102,16 @@ async function main() {
     const file = $fileInput.files[0];
     $fileInput.value = '';
     if (file) await loadFromLocalFile(file);
+  });
+
+  $btnMeasure.addEventListener('click', () => {
+    const active = !$btnMeasure.classList.contains('active');
+    $btnMeasure.classList.toggle('active', active);
+    $measureInfo.classList.add('hidden');
+    setMeasureMode(active, (distance) => {
+      $measureInfo.textContent = `Distance: ${distance.toFixed(2)}`;
+      $measureInfo.classList.remove('hidden');
+    });
   });
 
   try {

@@ -7,6 +7,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls, currentObject;
 let lastStats = null;
 
+// ── Measurement tool ────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster();
+let measureActive = false;
+let measureGroup = null;
+let pendingPoints = [];
+let measureMarkerRadius = 1;
+let onMeasureChange = null;
+let pointerDownPos = null;
+
 export function initViewer(canvas) {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xffffff);
@@ -45,11 +54,90 @@ export function initViewer(canvas) {
     renderer.setSize(innerWidth, innerHeight);
   });
 
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    pointerDownPos = { x: e.clientX, y: e.clientY };
+  });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (!measureActive || !pointerDownPos) return;
+    const dx = e.clientX - pointerDownPos.x;
+    const dy = e.clientY - pointerDownPos.y;
+    if (Math.hypot(dx, dy) < 5) handleMeasureClick(e.clientX, e.clientY);
+  });
+
   (function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   })();
+}
+
+function handleMeasureClick(clientX, clientY) {
+  if (!currentObject) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(currentObject, true);
+  if (!hits.length) return;
+
+  const point = hits[0].point;
+
+  if (pendingPoints.length === 0) {
+    clearMeasurement();
+    addMeasureMarker(point);
+    pendingPoints.push(point);
+  } else {
+    addMeasureMarker(point);
+    addMeasureLine(pendingPoints[0], point);
+    const distance = pendingPoints[0].distanceTo(point);
+    pendingPoints = [];
+    if (onMeasureChange) onMeasureChange(distance);
+  }
+}
+
+function addMeasureMarker(point) {
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(measureMarkerRadius, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff5722, depthTest: false })
+  );
+  marker.position.copy(point);
+  marker.renderOrder = 999;
+  measureGroup.add(marker);
+}
+
+function addMeasureLine(a, b) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([a, b]);
+  const material = new THREE.LineBasicMaterial({ color: 0xff5722, depthTest: false });
+  const line = new THREE.Line(geometry, material);
+  line.renderOrder = 999;
+  measureGroup.add(line);
+}
+
+function clearMeasurement() {
+  if (measureGroup) {
+    measureGroup.clear();
+  }
+  pendingPoints = [];
+}
+
+export function setMeasureMode(active, onChange) {
+  measureActive = active;
+  onMeasureChange = onChange || null;
+
+  if (active && !measureGroup) {
+    measureGroup = new THREE.Group();
+    scene.add(measureGroup);
+  }
+  if (active && currentObject) {
+    const box = new THREE.Box3().setFromObject(currentObject);
+    const maxDim = Math.max(...box.getSize(new THREE.Vector3()).toArray());
+    measureMarkerRadius = maxDim * 0.008;
+  }
+  if (!active) clearMeasurement();
 }
 
 export function loadArrayBuffer(buffer, filename) {
@@ -107,6 +195,7 @@ function placeInScene(object) {
   scene.add(object);
   currentObject = object;
   lastStats = computeStats(object);
+  clearMeasurement();
   fitCameraToObject(object);
 }
 
