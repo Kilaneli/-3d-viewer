@@ -24,7 +24,8 @@ export function initViewer(canvas) {
   scene.background = new THREE.Color(0xffffff);
 
   camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.001, 100000);
-  camera.position.set(0, 0, 5);
+  // Same classic isometric direction used once a model loads (see fitCameraToObject).
+  camera.position.copy(new THREE.Vector3(1, 1, 1).normalize().multiplyScalar(5));
 
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(devicePixelRatio);
