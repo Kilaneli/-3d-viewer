@@ -17,6 +17,7 @@ let onMeasureChange = null;
 let pointerDownPos = null;
 let measureLabelEl = null;
 let measureMidpoint = null;
+let hoverGroup = null;
 
 export function initViewer(canvas) {
   scene = new THREE.Scene();
@@ -65,6 +66,10 @@ export function initViewer(canvas) {
     const dy = e.clientY - pointerDownPos.y;
     if (Math.hypot(dx, dy) < 5) handleMeasureClick(e.clientX, e.clientY);
   });
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (measureActive) updateHoverHighlight(e.clientX, e.clientY);
+  });
+  renderer.domElement.addEventListener('pointerleave', clearHoverHighlight);
 
   (function animate() {
     requestAnimationFrame(animate);
@@ -89,13 +94,14 @@ function updateMeasureLabel() {
   measureLabelEl.style.top  = `${y}px`;
 }
 
-// Snaps a raycast hit to the nearest point on the nearest edge of the hit
-// triangle, so measurement points stick to the model's actual geometry
-// instead of floating mid-face.
-function snapToNearestEdge(hit) {
+// Finds the nearest point on the nearest edge of the hit triangle, so
+// measurement points stick to the model's actual geometry instead of
+// floating mid-face. Returns both the snapped point and the full edge
+// (for highlighting).
+function nearestEdgeInfo(hit) {
   const face = hit.face;
   const posAttr = hit.object.geometry.getAttribute('position');
-  if (!face || !posAttr) return hit.point;
+  if (!face || !posAttr) return { edge: [hit.point, hit.point], point: hit.point };
 
   const vA = new THREE.Vector3().fromBufferAttribute(posAttr, face.a).applyMatrix4(hit.object.matrixWorld);
   const vB = new THREE.Vector3().fromBufferAttribute(posAttr, face.b).applyMatrix4(hit.object.matrixWorld);
@@ -107,15 +113,69 @@ function snapToNearestEdge(hit) {
     return a.clone().addScaledVector(ab, t);
   };
 
-  const candidates = [
-    closestOnSegment(hit.point, vA, vB),
-    closestOnSegment(hit.point, vB, vC),
-    closestOnSegment(hit.point, vC, vA),
-  ];
+  const edges = [[vA, vB], [vB, vC], [vC, vA]];
+  let bestEdge  = edges[0];
+  let bestPoint = closestOnSegment(hit.point, vA, vB);
+  let bestDist  = hit.point.distanceTo(bestPoint);
 
-  return candidates.reduce((best, p) =>
-    hit.point.distanceTo(p) < hit.point.distanceTo(best) ? p : best
+  for (let i = 1; i < edges.length; i++) {
+    const [a, b] = edges[i];
+    const p = closestOnSegment(hit.point, a, b);
+    const d = hit.point.distanceTo(p);
+    if (d < bestDist) { bestDist = d; bestPoint = p; bestEdge = edges[i]; }
+  }
+
+  return { edge: bestEdge, point: bestPoint };
+}
+
+function snapToNearestEdge(hit) {
+  return nearestEdgeInfo(hit).point;
+}
+
+function ensureHoverGroup() {
+  if (!hoverGroup) {
+    hoverGroup = new THREE.Group();
+    scene.add(hoverGroup);
+  }
+  return hoverGroup;
+}
+
+function clearHoverHighlight() {
+  if (hoverGroup) hoverGroup.clear();
+}
+
+function updateHoverHighlight(clientX, clientY) {
+  if (!currentObject) { clearHoverHighlight(); return; }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((clientX - rect.left) / rect.width) * 2 - 1,
+    -((clientY - rect.top) / rect.height) * 2 + 1
   );
+
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(currentObject, true);
+
+  clearHoverHighlight();
+  if (!hits.length) return;
+
+  const { edge, point } = nearestEdgeInfo(hits[0]);
+  const group = ensureHoverGroup();
+
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(edge),
+    new THREE.LineBasicMaterial({ color: 0xffeb3b, depthTest: false })
+  );
+  line.renderOrder = 998;
+  group.add(line);
+
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(measureMarkerRadius * 0.7, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0xffeb3b, depthTest: false, transparent: true, opacity: 0.85 })
+  );
+  marker.position.copy(point);
+  marker.renderOrder = 998;
+  group.add(marker);
 }
 
 function handleMeasureClick(clientX, clientY) {
@@ -200,7 +260,10 @@ export function setMeasureMode(active, onChange) {
     const maxDim = Math.max(...box.getSize(new THREE.Vector3()).toArray());
     measureMarkerRadius = maxDim * 0.008;
   }
-  if (!active) clearMeasurement();
+  if (!active) {
+    clearMeasurement();
+    clearHoverHighlight();
+  }
 }
 
 export function loadArrayBuffer(buffer, filename) {
