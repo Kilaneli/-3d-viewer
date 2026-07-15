@@ -94,18 +94,32 @@ function updateMeasureLabel() {
   measureLabelEl.style.top  = `${y}px`;
 }
 
-// Finds the nearest point on the nearest edge of the hit triangle, so
-// measurement points stick to the model's actual geometry instead of
-// floating mid-face. Returns both the snapped point and the full edge
-// (for highlighting).
-function nearestEdgeInfo(hit) {
+// Finds the best snap point for a raycast hit against the hit triangle:
+// the nearest vertex if the cursor is close enough to one (magnetic
+// corner snap), otherwise the nearest point on the nearest edge. This
+// makes measurement points stick to the model's actual geometry instead
+// of floating mid-face.
+function nearestSnapInfo(hit) {
   const face = hit.face;
   const posAttr = hit.object.geometry.getAttribute('position');
-  if (!face || !posAttr) return { edge: [hit.point, hit.point], point: hit.point };
+  if (!face || !posAttr) return { type: 'point', point: hit.point };
 
   const vA = new THREE.Vector3().fromBufferAttribute(posAttr, face.a).applyMatrix4(hit.object.matrixWorld);
   const vB = new THREE.Vector3().fromBufferAttribute(posAttr, face.b).applyMatrix4(hit.object.matrixWorld);
   const vC = new THREE.Vector3().fromBufferAttribute(posAttr, face.c).applyMatrix4(hit.object.matrixWorld);
+
+  const vertices = [vA, vB, vC];
+  let nearestVertex = vertices[0];
+  let vertexDist = hit.point.distanceTo(vertices[0]);
+  for (let i = 1; i < vertices.length; i++) {
+    const d = hit.point.distanceTo(vertices[i]);
+    if (d < vertexDist) { vertexDist = d; nearestVertex = vertices[i]; }
+  }
+
+  const vertexSnapRadius = measureMarkerRadius * 6;
+  if (vertexDist <= vertexSnapRadius) {
+    return { type: 'vertex', point: nearestVertex };
+  }
 
   const closestOnSegment = (p, a, b) => {
     const ab = new THREE.Vector3().subVectors(b, a);
@@ -125,11 +139,7 @@ function nearestEdgeInfo(hit) {
     if (d < bestDist) { bestDist = d; bestPoint = p; bestEdge = edges[i]; }
   }
 
-  return { edge: bestEdge, point: bestPoint };
-}
-
-function snapToNearestEdge(hit) {
-  return nearestEdgeInfo(hit).point;
+  return { type: 'edge', edge: bestEdge, point: bestPoint };
 }
 
 function ensureHoverGroup() {
@@ -159,21 +169,25 @@ function updateHoverHighlight(clientX, clientY) {
   clearHoverHighlight();
   if (!hits.length) return;
 
-  const { edge, point } = nearestEdgeInfo(hits[0]);
+  const snap = nearestSnapInfo(hits[0]);
   const group = ensureHoverGroup();
+  const isVertex = snap.type === 'vertex';
+  const color = isVertex ? 0x00e5ff : 0xffeb3b;
 
-  const line = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(edge),
-    new THREE.LineBasicMaterial({ color: 0xffeb3b, depthTest: false })
-  );
-  line.renderOrder = 998;
-  group.add(line);
+  if (!isVertex) {
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(snap.edge),
+      new THREE.LineBasicMaterial({ color, depthTest: false })
+    );
+    line.renderOrder = 998;
+    group.add(line);
+  }
 
   const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(measureMarkerRadius * 0.7, 12, 12),
-    new THREE.MeshBasicMaterial({ color: 0xffeb3b, depthTest: false, transparent: true, opacity: 0.85 })
+    new THREE.SphereGeometry(measureMarkerRadius * (isVertex ? 1 : 0.7), 12, 12),
+    new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.85 })
   );
-  marker.position.copy(point);
+  marker.position.copy(snap.point);
   marker.renderOrder = 998;
   group.add(marker);
 }
@@ -191,7 +205,7 @@ function handleMeasureClick(clientX, clientY) {
   const hits = raycaster.intersectObject(currentObject, true);
   if (!hits.length) return;
 
-  const point = snapToNearestEdge(hits[0]);
+  const point = nearestSnapInfo(hits[0]).point;
 
   if (pendingPoints.length === 0) {
     clearMeasurement();
