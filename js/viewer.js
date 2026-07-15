@@ -15,6 +15,8 @@ let pendingPoints = [];
 let measureMarkerRadius = 1;
 let onMeasureChange = null;
 let pointerDownPos = null;
+let measureLabelEl = null;
+let measureMidpoint = null;
 
 export function initViewer(canvas) {
   scene = new THREE.Scene();
@@ -68,7 +70,52 @@ export function initViewer(canvas) {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+    updateMeasureLabel();
   })();
+}
+
+function updateMeasureLabel() {
+  if (!measureMidpoint || !measureLabelEl) return;
+
+  const proj = measureMidpoint.clone().project(camera);
+  if (proj.z > 1) { measureLabelEl.style.display = 'none'; return; }
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = rect.left + (proj.x * 0.5 + 0.5) * rect.width;
+  const y = rect.top + (-proj.y * 0.5 + 0.5) * rect.height;
+
+  measureLabelEl.style.display = 'block';
+  measureLabelEl.style.left = `${x}px`;
+  measureLabelEl.style.top  = `${y}px`;
+}
+
+// Snaps a raycast hit to the nearest point on the nearest edge of the hit
+// triangle, so measurement points stick to the model's actual geometry
+// instead of floating mid-face.
+function snapToNearestEdge(hit) {
+  const face = hit.face;
+  const posAttr = hit.object.geometry.getAttribute('position');
+  if (!face || !posAttr) return hit.point;
+
+  const vA = new THREE.Vector3().fromBufferAttribute(posAttr, face.a).applyMatrix4(hit.object.matrixWorld);
+  const vB = new THREE.Vector3().fromBufferAttribute(posAttr, face.b).applyMatrix4(hit.object.matrixWorld);
+  const vC = new THREE.Vector3().fromBufferAttribute(posAttr, face.c).applyMatrix4(hit.object.matrixWorld);
+
+  const closestOnSegment = (p, a, b) => {
+    const ab = new THREE.Vector3().subVectors(b, a);
+    const t = THREE.MathUtils.clamp(new THREE.Vector3().subVectors(p, a).dot(ab) / ab.lengthSq(), 0, 1);
+    return a.clone().addScaledVector(ab, t);
+  };
+
+  const candidates = [
+    closestOnSegment(hit.point, vA, vB),
+    closestOnSegment(hit.point, vB, vC),
+    closestOnSegment(hit.point, vC, vA),
+  ];
+
+  return candidates.reduce((best, p) =>
+    hit.point.distanceTo(p) < hit.point.distanceTo(best) ? p : best
+  );
 }
 
 function handleMeasureClick(clientX, clientY) {
@@ -84,7 +131,7 @@ function handleMeasureClick(clientX, clientY) {
   const hits = raycaster.intersectObject(currentObject, true);
   if (!hits.length) return;
 
-  const point = hits[0].point;
+  const point = snapToNearestEdge(hits[0]);
 
   if (pendingPoints.length === 0) {
     clearMeasurement();
@@ -94,9 +141,23 @@ function handleMeasureClick(clientX, clientY) {
     addMeasureMarker(point);
     addMeasureLine(pendingPoints[0], point);
     const distance = pendingPoints[0].distanceTo(point);
+
+    measureMidpoint = pendingPoints[0].clone().lerp(point, 0.5);
+    ensureMeasureLabel();
+    measureLabelEl.textContent = distance.toFixed(2);
+
     pendingPoints = [];
     if (onMeasureChange) onMeasureChange(distance);
   }
+}
+
+function ensureMeasureLabel() {
+  if (measureLabelEl) return measureLabelEl;
+  measureLabelEl = document.createElement('div');
+  measureLabelEl.id = 'measure-label';
+  measureLabelEl.style.display = 'none';
+  document.body.appendChild(measureLabelEl);
+  return measureLabelEl;
 }
 
 function addMeasureMarker(point) {
@@ -122,6 +183,8 @@ function clearMeasurement() {
     measureGroup.clear();
   }
   pendingPoints = [];
+  measureMidpoint = null;
+  if (measureLabelEl) measureLabelEl.style.display = 'none';
 }
 
 export function setMeasureMode(active, onChange) {

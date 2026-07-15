@@ -119,6 +119,21 @@ body {
   color: #202124;
 }
 
+#measure-label {
+  position: fixed;
+  z-index: 15;
+  transform: translate(-50%, -130%);
+  padding: 3px 8px;
+  background: #ff5722;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+}
+
 /* ── Status overlay ──────────────────────── */
 #status {
   position: fixed;
