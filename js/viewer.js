@@ -384,7 +384,8 @@ function fitCameraToObject(object) {
   camera.near = dist * 0.001;
   camera.far  = dist * 100;
   camera.updateProjectionMatrix();
-  camera.position.set(dist * 0.8, dist * 0.55, dist * 0.8);
+  // Classic isometric view: 45° azimuth, ~35.264° elevation (direction (1,1,1)).
+  camera.position.copy(new THREE.Vector3(1, 1, 1).normalize().multiplyScalar(dist));
 
   controls.target.set(0, 0, 0);
   controls.update();
